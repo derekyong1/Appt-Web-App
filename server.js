@@ -4,34 +4,40 @@ const app = express();
 const port = 3000;
 
 app.use(express.json());
-app.use(express.static('.')); // Serve static files (HTML, CSS, JS)
+app.use(express.static('.'));
 
-app.post('/book', (req, res) => {
+app.post('/book', async (req, res) => {
     const { name, email, date, time } = req.body;
 
-    // Set up email transporter (using Gmail for this example)
+    // Create a test account with Ethereal
+    const testAccount = await nodemailer.createTestAccount();
+
+    // Set up the transporter with Ethereal credentials
     const transporter = nodemailer.createTransport({
-        service: 'gmail',
+        host: 'smtp.ethereal.email',
+        port: 587,
+        secure: false, // true for 465, false for other ports
         auth: {
-            user: 'your-email@gmail.com', // Replace with your Gmail
-            pass: 'your-app-password'     // Replace with Gmail App Password (not regular password)
+            user: testAccount.user, // Generated Ethereal user
+            pass: testAccount.pass  // Generated Ethereal password
         }
     });
 
     const mailOptions = {
-        from: 'your-email@gmail.com',
+        from: '"Doctor Office" <no-reply@doctoroffice.com>',
         to: email,
         subject: 'Appointment Confirmation',
         text: `Hello ${name},\n\nYour appointment is confirmed for ${date} at ${time}.\n\nThank you!`
     };
 
-    transporter.sendMail(mailOptions, (error, info) => {
-        if (error) {
-            console.error(error);
-            return res.status(500).json({ message: 'Error sending email' });
-        }
-        res.json({ message: 'Appointment booked! Check your email for confirmation.' });
-    });
+    try {
+        const info = await transporter.sendMail(mailOptions);
+        console.log('Preview URL: ', nodemailer.getTestMessageUrl(info));
+        res.json({ message: 'Appointment booked! Check server logs for email preview.' });
+    } catch (error) {
+        console.error(error);
+        res.status(500).json({ message: 'Error sending email' });
+    }
 });
 
 app.listen(port, () => {
